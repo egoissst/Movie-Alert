@@ -71,6 +71,7 @@ def load_config():
         "TARGET_URL": "target_url",
         "THEATRE": "theatre",
         "MOVIE": "movie",
+        "REQUESTED_DATE": "requested_date",
         "TELEGRAM_BOT_TOKEN": "telegram_bot_token",
         "TELEGRAM_CHAT_ID": "telegram_chat_id",
     }
@@ -80,6 +81,12 @@ def load_config():
 
     if os.environ.get("HEADERS_JSON"):
         cfg["headers"] = json.loads(os.environ["HEADERS_JSON"])
+
+    # The BMS date is embedded in the URL, so build the URL from the template
+    # and the (possibly overridden) requested_date. Set REQUESTED_DATE=20260717
+    # to point everything at the 17th for a live end-to-end test.
+    if cfg.get("url_template") and cfg.get("requested_date"):
+        cfg["target_url"] = cfg["url_template"].format(date=cfg["requested_date"])
 
     required = ["target_url", "telegram_bot_token", "telegram_chat_id"]
     if cfg.get("detector") == "bms_date":

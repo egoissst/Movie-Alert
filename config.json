@@ -2,6 +2,6 @@
   "detector": "bms_date",
   "movie": "The Odyssey (IMAX 2D)",
   "requested_date": "20260720",
-  "target_url": "https://in.bookmyshow.com/movies/chennai/the-odyssey/buytickets/ET00480917/20260720",
+  "url_template": "https://in.bookmyshow.com/movies/chennai/the-odyssey/buytickets/ET00480917/{date}",
   "min_references": 10
 }
