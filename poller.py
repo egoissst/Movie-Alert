@@ -251,6 +251,30 @@ def is_available_generic(page_text, cfg):
     return has_open and not only_closed
 
 
+def trigger_telegram_call(username, text="Alert! Movie tickets are now available!"):
+    """Triggers an automated voice call via CallMeBot."""
+    if not username:
+        return
+
+    # Ensure username includes leading '@'
+    clean_username = username.strip()
+    if not clean_username.startswith("@"):
+        clean_username = f"@{clean_username}"
+
+    safe_text = urllib.parse.quote(text)
+    # rpt=3 repeats the spoken message 3 times during the call
+    call_url = f"http://api.callmebot.com/start.php?user={clean_username}&text={safe_text}&lang=en-GB-Standard-B&rpt=3"
+
+    try:
+        response = requests.get(call_url, timeout=10)
+        if response.status_code == 200:
+            print(f"[{clean_username}] CallMeBot voice call triggered successfully")
+        else:
+            print(f"[{clean_username}] CallMeBot return status code {response.status_code}")
+    except Exception as exc:
+        print(f"[{clean_username}] CallMeBot call failed: {exc}")
+        
+
 def main():
     cfg = load_config()
     state = load_json(STATE_PATH, default={"available": False}) or {"available": False}
@@ -289,6 +313,11 @@ def main():
                 f"Book here: {cfg['target_url']}"
             )
         send_telegram(cfg["telegram_bot_token"], cfg["telegram_chat_id"], msg)
+        # 2. Trigger Actual Telegram Phone Call
+        telegram_username = cfg.get("telegram_username")
+        spoken_alert = f"Alert! Booking just opened for {cfg.get('movie', 'your movie')}. Open BookMyShow now!"
+        trigger_telegram_call(telegram_username, spoken_alert)
+        
         print(f"[{label}] notification sent")
 
     # Persist current state so we don't re-alert every run.
