@@ -74,6 +74,7 @@ def load_config():
         "REQUESTED_DATE": "requested_date",
         "TELEGRAM_BOT_TOKEN": "telegram_bot_token",
         "TELEGRAM_CHAT_ID": "telegram_chat_id",
+        "TELEGRAM_USERNAME": "telegram_username",
     }
     for env_key, cfg_key in env_map.items():
         if os.environ.get(env_key):
