@@ -1,9 +1,9 @@
 {
   "detector": "venue_date",
-  "movie": "The Odyssey (IMAX 2D)",
-  "requested_date": "20260722",
-  "venue_code": "INPR",
-  "venue_label": "INOX: LUXE Phoenix Market City, Velachery",
-  "url_template": "https://in.bookmyshow.com/movies/chennai/the-odyssey/buytickets/ET00480917/{date}",
+  "movie": "The Odyssey - (English)",
+  "requested_date": "20260726",
+  "venue_code": "ALUC",
+  "venue_label": "ALLU Cinemas: Kokapet",
+  "url_template": "https://in.bookmyshow.com/movies/hyderabad/the-odyssey/buytickets/ET00504055/{date}",
   "min_references": 10
 }
