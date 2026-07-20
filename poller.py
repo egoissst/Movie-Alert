@@ -314,9 +314,9 @@ def main():
             )
         send_telegram(cfg["telegram_bot_token"], cfg["telegram_chat_id"], msg)
         # 2. Trigger Actual Telegram Phone Call
-        telegram_username = cfg.get("telegram_username")
-        spoken_alert = f"Alert! Booking just opened for {cfg.get('movie', 'your movie')}. Open BookMyShow now!"
-        trigger_telegram_call(telegram_username, spoken_alert)
+        # telegram_username = cfg.get("telegram_username")
+        # spoken_alert = f"Alert! Booking just opened for {cfg.get('movie', 'your movie')}. Open BookMyShow now!"
+        # trigger_telegram_call(telegram_username, spoken_alert)
         
         print(f"[{label}] notification sent")
 
