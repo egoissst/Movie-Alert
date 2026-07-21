@@ -5,5 +5,6 @@
   "venue_code": "ALUC",
   "venue_label": "ALLU Cinemas: Kokapet",
   "url_template": "https://in.bookmyshow.com/movies/hyderabad/the-odyssey/buytickets/ET00504055/{date}",
-  "min_references": 10
+  "min_references": 10,
+  "requested_time": "08:45 AM"
 }
