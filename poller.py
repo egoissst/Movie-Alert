@@ -210,6 +210,7 @@ def is_available_venue_date(page_text, cfg):
     # 2. If a specific time is requested, ensure it's also present on the page
     requested_time = cfg.get("requested_time")
     if venue_open and requested_time:
+        print(f"Venue open. Checking requested_time as well : {requested_time}")
         return requested_time in page_text
     return venue_open
 
