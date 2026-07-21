@@ -204,7 +204,14 @@ def is_available_venue_date(page_text, cfg):
     """
     date = cfg["requested_date"]
     codes = cfg.get("venue_codes") or [cfg["venue_code"]]
-    return any("/{}/{}".format(code, date) in page_text for code in codes)
+    # 1. Check if the venue has opened for the date
+    venue_open = any("/{}/{}".format(code, date) in page_text for code in codes)
+    
+    # 2. If a specific time is requested, ensure it's also present on the page
+    requested_time = cfg.get("requested_time")
+    if venue_open and requested_time:
+        return requested_time in page_text
+    return venue_open
 
 
 def is_available(page_text, cfg):
