@@ -1,7 +1,7 @@
 {
   "detector": "venue_date",
   "movie": "Ramayan",
-  "requested_date": "20261111",
+  "requested_date": "20261113",
   "venue_code": "ALUC",
   "venue_label": "ALLU Cinemas: Kokapet",
   "url_template": "https://in.bookmyshow.com/movies/hyderabad/ramayana/buytickets/ET00523251/{date}",
