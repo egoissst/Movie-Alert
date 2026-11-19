@@ -4,6 +4,6 @@
   "requested_date": "20261219",
   "venue_code": "ALUC",
   "venue_label": "ALLU Cinemas: Kokapet",
-  "url_template": "https://in.bookmyshow.com/movies/hyderabad/ramayana/buytickets/ET00526287/{date}",
+  "url_template": "https://in.bookmyshow.com/movies/hyderabad/avengers-doomsday/buytickets/ET00526287/{date}",
   "min_references": 10
 }
