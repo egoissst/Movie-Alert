@@ -324,6 +324,9 @@ def main():
     print(f"[{label}] available={available} (was {state.get('available')})")
 
     if available and not state.get("available"):
+        req_time = (cfg.get("requested_time") or "").strip()
+        time_line = f"Time: {req_time}\n" if req_time else ""
+
         if cfg.get("detector") in ("bms_date", "venue_date"):
             rd = cfg["requested_date"]
             pretty = f"{rd[6:8]}-{rd[4:6]}-{rd[0:4]}"
@@ -333,14 +336,16 @@ def main():
                 f"🎬 Booking just OPENED!\n\n"
                 f"{cfg.get('movie', 'Movie')}\n"
                 f"{venue_line}"
-                f"Date: {pretty}\n\n"
+                f"Date: {pretty}\n"
+                f"{time_line}\n"
                 f"Book here: {cfg['target_url']}"
             )
         else:
             msg = (
                 f"🎬 Booking is OPEN!\n\n"
                 f"{cfg.get('movie', 'Movie')}\n"
-                f"Theatre: {cfg['theatre']}\n\n"
+                f"Theatre: {cfg['theatre']}\n"
+                f"{time_line}\n"
                 f"Book here: {cfg['target_url']}"
             )
         send_telegram(cfg["telegram_bot_token"], cfg["telegram_chat_id"], msg)
