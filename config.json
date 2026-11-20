@@ -1,10 +1,10 @@
 {
   "detector": "venue_date",
   "movie": "Avengers: Doomsday (English)",
-  "requested_date": "20261220",
+  "requested_date": "20261219",
   "venue_code": "ALUC",
   "venue_label": "ALLU Cinemas: Kokapet",
   "url_template": "https://in.bookmyshow.com/movies/hyderabad/avengers-doomsday/buytickets/ET00526306/{date}",
   "min_references": 10,
-  "requested_time": "11:00 PM"
+  "requested_time": "04:30 PM"
 }
