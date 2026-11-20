@@ -191,28 +191,51 @@ def is_available_bms_date(page_text, cfg):
 
 def is_available_venue_date(page_text, cfg):
     """
-    Theatre-specific detector: is a given venue bookable on a given date?
-
-    BMS renders a per-venue booking link like
-        /cinemas/chennai/<slug>/buytickets/<venueCode>/<date>
-    only when that venue has live shows for that exact date. Because the date
-    is baked into the link, it can't be confused with the silent fallback
-    (a fallback page carries /<code>/<fallbackDate>, not /<code>/<ourDate>).
-
-    Set venue_code (one) or venue_codes (list). With a list, it's open when
-    ANY of them is bookable for the date.
+    Theatre-specific detector: is a given venue bookable on a given date
+    (and optionally at a specific showtime)?
     """
     date = cfg["requested_date"]
     codes = cfg.get("venue_codes") or [cfg["venue_code"]]
-    # 1. Check if the venue has opened for the date
-    venue_open = any("/{}/{}".format(code, date) in page_text for code in codes)
-    
-    # 2. If a specific time is requested, ensure it's also present on the page
-    requested_time = cfg.get("requested_time")
-    if venue_open and requested_time:
-        print(f"Venue open. Checking requested_time as well : {requested_time}")
-        return requested_time in page_text
-    return venue_open
+    requested_time = (cfg.get("requested_time") or "").strip()
+
+    for code in codes:
+        # 1. Confirm this specific venue has opened for the target date
+        if f"/{code}/{date}" not in page_text:
+            continue
+
+        # 2. If no specific time is required, venue + date match is sufficient
+        if not requested_time:
+            return True
+
+        print(f"[{code}] Venue open for {date}. Scoping check for requested_time: {requested_time}")
+
+        # 3. Extract ONLY the JSON/HTML slice belonging to this venue code
+        # (from "VenueCode":"ALUC" up to the next "VenueCode": key)
+        venue_json_blocks = re.findall(
+            rf'"VenueCode"\s*:\s*"{re.escape(code)}"(?:(?!"VenueCode"\s*:).)*',
+            page_text,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+
+        # Also check any DOM/anchor block starting at /<code>/<date> up to the next /<OTHER_CODE>/<date>
+        venue_dom_blocks = re.findall(
+            rf'/{re.escape(code)}/{re.escape(date)}(?:(?!/[A-Z0-9]{{3,6}}/{re.escape(date)}).)*',
+            page_text,
+            flags=re.DOTALL,
+        )
+
+        scoped_chunks = venue_json_blocks + venue_dom_blocks
+        if not scoped_chunks:
+            continue
+
+        # Normalize whitespace (e.g., in case BMS uses non-breaking spaces like "04:30\xa0PM")
+        norm_target_time = re.sub(r"\s+", " ", requested_time).lower()
+        for chunk in scoped_chunks:
+            norm_chunk = re.sub(r"\s+", " ", chunk).lower()
+            if norm_target_time in norm_chunk:
+                return True
+
+    return False
 
 
 def is_available(page_text, cfg):
