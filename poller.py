@@ -22,6 +22,9 @@ import time
 import urllib.parse
 from collections import Counter
 from pathlib import Path
+import random
+import string
+from curl_cffi import requests as cffi_requests
 
 import requests
 
@@ -113,24 +116,20 @@ def send_telegram(token, chat_id, text):
     resp.raise_for_status()
 
 
+def _build_session_proxy(proxy_url: str | None) -> str | None:
+    """
+    If using an IPRoyal proxy URL without an explicit _session- tag,
+    attach a fresh 8-char sticky session ID so warm-up + target share one IP,
+    while each retry gets a brand new residential IP.
+    """
+    if not proxy_url or "iproyal.com" not in proxy_url or "_session-" in proxy_url:
+        return proxy_url
+    rand_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    # Inject _session-<8chars>_lifetime-2m right before '@' in http://user:pass@geo.iproyal.com:12321
+    return proxy_url.replace("@", f"_session-{rand_id}_lifetime-2m@", 1)
+    
+
 def fetch(cfg):
-    """
-    Fetch the target URL from an India egress when configured.
-
-    BookMyShow blocks non-India / datacenter IPs (e.g. GitHub's US runners),
-    so a plain request from CI gets a 403. Two ways to route through India:
-
-    * SCRAPERAPI_KEY  -- routes via ScraperAPI with country_code=in and solves
-                         anti-bot. Easiest for CI. Set it as a repo secret.
-    * PROXY_URL       -- a standard http(s) proxy string, e.g.
-                         "http://user:pass@in-proxy-host:port".
-
-    With neither set, it makes a direct request with browser headers plus a
-    cookie warm-up -- enough only when running from an India IP.
-    """
-    headers = dict(DEFAULT_HEADERS)
-    headers.update(cfg.get("headers", {}))
-
     scraper_key = os.environ.get("SCRAPERAPI_KEY")
     if scraper_key:
         api_url = "https://api.scraperapi.com/?" + urllib.parse.urlencode(
@@ -140,26 +139,38 @@ def fetch(cfg):
         resp.raise_for_status()
         return resp.text
 
-    proxy = os.environ.get("PROXY_URL")
-    proxies = {"http": proxy, "https": proxy} if proxy else None
+    raw_proxy = os.environ.get("PROXY_URL")
+    last_exc = None
 
-    session = requests.Session()
-    session.headers.update(headers)
+    for attempt in range(1, 4):
+        proxy = _build_session_proxy(raw_proxy)
+        proxies = {"http": proxy, "https": proxy} if proxy else None
+        session = cffi_requests.Session(impersonate="chrome")
 
-    # Warm-up: hit the homepage first to pick up cookies (helps soft bot checks).
-    try:
-        session.get("https://in.bookmyshow.com/", timeout=30, proxies=proxies)
-    except requests.RequestException:
-        pass
+        try:
+            # Optional warm-up only on retry after a 403 (saves residential bandwidth on attempt 1)
+            if attempt > 1:
+                try:
+                    session.get("https://in.bookmyshow.com/", timeout=10, proxies=proxies)
+                except Exception:
+                    pass
 
-    resp = session.get(
-        cfg["target_url"],
-        timeout=30,
-        proxies=proxies,
-        headers={"Referer": "https://in.bookmyshow.com/explore/movies-chennai"},
-    )
-    resp.raise_for_status()
-    return resp.text
+            resp = session.get(
+                cfg["target_url"],
+                timeout=15,
+                proxies=proxies,
+                headers={"Referer": "https://in.bookmyshow.com/explore/movies-hyderabad"},
+            )
+            resp.raise_for_status()
+            return resp.text
+
+        except Exception as exc:
+            last_exc = exc
+            print(f"[attempt {attempt}/3] fetch error: {exc}")
+            if attempt < 3:
+                time.sleep(2)
+
+    raise last_exc
 
 
 def is_available_bms_date(page_text, cfg):
