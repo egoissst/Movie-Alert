@@ -24,7 +24,8 @@ from collections import Counter
 from pathlib import Path
 import random
 import string
-from curl_cffi import requests as cffi_requests
+from urllib.parse import urlparse
+from playwright.sync_api import sync_playwright
 
 import requests
 
@@ -116,59 +117,64 @@ def send_telegram(token, chat_id, text):
     resp.raise_for_status()
 
 
-def _build_session_proxy(proxy_url: str | None) -> str | None:
-    """
-    If using an IPRoyal proxy URL without an explicit _session- tag,
-    attach a fresh 8-char sticky session ID so warm-up + target share one IP,
-    while each retry gets a brand new residential IP.
-    """
-    if not proxy_url or "iproyal.com" not in proxy_url or "_session-" in proxy_url:
-        return proxy_url
-    rand_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
-    # Inject _session-<8chars>_lifetime-2m right before '@' in http://user:pass@geo.iproyal.com:12321
-    return proxy_url.replace("@", f"_session-{rand_id}_lifetime-2m@", 1)
+def _parse_playwright_proxy(proxy_url: str | None) -> dict | None:
+    if not proxy_url:
+        return None
+    parsed = urlparse(proxy_url)
+    password = parsed.password or ""
+    if "iproyal.com" in (parsed.hostname or "") and "_session-" not in password:
+        rand_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        password = f"{password}_session-{rand_id}_lifetime-2m"
+    return {
+        "server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port}",
+        "username": parsed.username or "",
+        "password": password,
+    }
     
 
 def fetch(cfg):
-    scraper_key = os.environ.get("SCRAPERAPI_KEY")
-    if scraper_key:
-        api_url = "https://api.scraperapi.com/?" + urllib.parse.urlencode(
-            {"api_key": scraper_key, "country_code": "in", "url": cfg["target_url"]}
-        )
-        resp = requests.get(api_url, timeout=90)
-        resp.raise_for_status()
-        return resp.text
-
     raw_proxy = os.environ.get("PROXY_URL")
     last_exc = None
 
-    for attempt in range(1, 4):
-        proxy = _build_session_proxy(raw_proxy)
-        proxies = {"http": proxy, "https": proxy} if proxy else None
-        session = cffi_requests.Session(impersonate="chrome")
-
+    for attempt in range(1, 3):
+        proxy_cfg = _parse_playwright_proxy(raw_proxy)
         try:
-            # Optional warm-up only on retry after a 403 (saves residential bandwidth on attempt 1)
-            if attempt > 1:
-                try:
-                    session.get("https://in.bookmyshow.com/", timeout=10, proxies=proxies)
-                except Exception:
-                    pass
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    proxy=proxy_cfg,
+                    args=["--disable-blink-features=AutomationControlled"],
+                )
+                context = browser.new_context(
+                    locale="en-IN",
+                    timezone_id="Asia/Kolkata",
+                    user_agent=(
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/131.0.0.0 Safari/537.36"
+                    ),
+                )
+                page = context.new_page()
 
-            resp = session.get(
-                cfg["target_url"],
-                timeout=15,
-                proxies=proxies,
-                headers={"Referer": "https://in.bookmyshow.com/explore/movies-hyderabad"},
-            )
-            resp.raise_for_status()
-            return resp.text
+                # Block heavy assets to save IPRoyal traffic
+                page.route(
+                    "**/*.{png,jpg,jpeg,gif,webp,svg,woff,woff2,ttf,css}",
+                    lambda route: route.abort(),
+                )
 
+                page.goto(cfg["target_url"], wait_until="domcontentloaded", timeout=30000)
+                # Wait for venue list or Cloudflare challenge auto-resolution
+                page.wait_for_timeout(5000)
+                html = page.content()
+                browser.close()
+
+                if "Just a moment..." in html or len(html) < 5000:
+                    raise RuntimeError("Blocked by Cloudflare challenge page")
+
+                return html
         except Exception as exc:
             last_exc = exc
-            print(f"[attempt {attempt}/3] fetch error: {exc}")
-            if attempt < 3:
-                time.sleep(2)
+            print(f"[attempt {attempt}/2] fetch error: {exc}")
 
     raise last_exc
 
